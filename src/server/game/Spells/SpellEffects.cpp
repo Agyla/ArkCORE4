@@ -2424,7 +2424,7 @@ void Spell::EffectTeleportUnits(SpellEffIndex /*effIndex*/)
     TC_LOG_DEBUG("spells", "Spell::EffectTeleportUnits - teleport unit to %u %f %f %f %f\n", mapid, x, y, z, orientation);
 
     if (unitTarget->GetTypeId() == TYPEID_PLAYER)
-        unitTarget->ToPlayer()->TeleportTo(mapid, x, y, z, orientation, unitTarget == m_caster ? TELE_TO_SPELL : 0);
+        unitTarget->ToPlayer()->TeleportTo(mapid, x, y, z, orientation, unitTarget == m_caster ? TELE_TO_SPELL | TELE_TO_NOT_LEAVE_COMBAT : 0);
     else if (mapid == unitTarget->GetMapId())
         unitTarget->NearTeleportTo(x, y, z, orientation, unitTarget == m_caster);
     else
@@ -3212,6 +3212,12 @@ void Spell::EffectEnergize(SpellEffIndex effIndex)
 
     Powers power = Powers(m_spellInfo->Effects[effIndex].MiscValue);
 
+    if (unitTarget->GetTypeId() == TYPEID_PLAYER && unitTarget->getPowerType() != power && !(m_spellInfo->AttributesEx7 & SPELL_ATTR7_CAN_RESTORE_SECONDARY_POWER))
+        return;
+
+    if (unitTarget->GetMaxPower(power) == 0)
+        return;
+
     // Some level depends spells
     int level_multiplier = 0;
     int level_diff = 0;
@@ -3255,9 +3261,6 @@ void Spell::EffectEnergize(SpellEffIndex effIndex)
         damage -= level_multiplier * level_diff;
 
     if (damage < 0 && power != POWER_ECLIPSE)
-        return;
-
-    if (unitTarget->GetMaxPower(power) == 0)
         return;
 
     m_caster->EnergizeBySpell(unitTarget, m_spellInfo->Id, damage, power);
@@ -3323,6 +3326,9 @@ void Spell::EffectEnergizePct(SpellEffIndex effIndex)
         return;
 
     Powers power = Powers(m_spellInfo->Effects[effIndex].MiscValue);
+
+    if (unitTarget->GetTypeId() == TYPEID_PLAYER && unitTarget->getPowerType() != power && !(m_spellInfo->AttributesEx7 & SPELL_ATTR7_CAN_RESTORE_SECONDARY_POWER))
+        return;
 
     uint32 maxPower = unitTarget->GetMaxPower(power);
     if (maxPower == 0)
@@ -4958,6 +4964,9 @@ void Spell::EffectSummonObjectWild(SpellEffIndex effIndex)
         return;
     }
 
+    for (auto phase : m_caster->GetPhases())
+        pGameObj->SetInPhase(phase, false, true);
+
     int32 duration = m_spellInfo->GetDuration();
 
     pGameObj->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
@@ -4979,6 +4988,9 @@ void Spell::EffectSummonObjectWild(SpellEffIndex effIndex)
         if (linkedGO->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), linkedEntry, map,
             m_caster->GetPhaseMask(), x, y, z, target->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
         {
+            for (auto phase : m_caster->GetPhases())
+                linkedGO->SetInPhase(phase, false, true);
+
             linkedGO->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
             linkedGO->SetSpellId(m_spellInfo->Id);
 
@@ -5612,15 +5624,40 @@ void Spell::EffectScriptEffect(SpellEffIndex effIndex)
             {
                 // Get diseases on target of spell
                 if (m_targets.GetUnitTarget() &&  // Glyph of Disease - cast on unit target too to refresh aura
-                    (m_targets.GetUnitTarget() != unitTarget || m_caster->GetAura(63334)))
+                    (m_targets.GetUnitTarget() != unitTarget || m_caster->HasAura(63334)))
                 {
                     // And spread them on target
                     // Blood Plague
-                    if (m_targets.GetUnitTarget()->GetAura(55078))
+                    if (m_targets.GetUnitTarget()->HasAura(55078))
+                    {
+                        AuraEffect* aurEffOld = m_targets.GetUnitTarget()->GetAura(55078)->GetEffect(0);
+                        float donePct = aurEffOld->GetDonePct();
+                        float critChance = aurEffOld->GetCritChance();
+
                         m_caster->CastSpell(unitTarget, 55078, true);
+
+                        if (unitTarget->HasAura(55078))
+                            if (AuraEffect* aurEffNew = unitTarget->GetAura(55078)->GetEffect(0))
+                            {
+                                aurEffNew->SetCritChance(critChance); // Blood Plague can crit if caster has T9.
+                                aurEffNew->SetDonePct(donePct);
+                                aurEffNew->SetDamage(m_caster->SpellDamageBonusDone(unitTarget, aurEffNew->GetSpellInfo(), std::max(aurEffNew->GetAmount(), 0), DOT) * donePct);
+                            }
+                    }
                     // Frost Fever
-                    if (m_targets.GetUnitTarget()->GetAura(55095))
+                    if (m_targets.GetUnitTarget()->HasAura(55095))
+                    {
+                        float donePct = m_targets.GetUnitTarget()->GetAura(55095)->GetEffect(0)->GetDonePct();
+
                         m_caster->CastSpell(unitTarget, 55095, true);
+
+                        if (unitTarget->HasAura(55095))
+                            if (AuraEffect* aurEffNew = unitTarget->GetAura(55095)->GetEffect(0))
+                            {
+                                aurEffNew->SetDonePct(donePct);
+                                aurEffNew->SetDamage(m_caster->SpellDamageBonusDone(unitTarget, aurEffNew->GetSpellInfo(), std::max(aurEffNew->GetAmount(), 0), DOT) * donePct);
+                            }
+                    }
                 }
             }
             break;
@@ -5749,7 +5786,7 @@ void Spell::EffectDuel(SpellEffIndex effIndex)
 
     Map* map = m_caster->GetMap();
     if (!pGameObj->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), gameobject_id,
-        map, m_caster->GetPhaseMask(),
+        map, 0,
         m_caster->GetPositionX()+(unitTarget->GetPositionX()-m_caster->GetPositionX())/2,
         m_caster->GetPositionY()+(unitTarget->GetPositionY()-m_caster->GetPositionY())/2,
         m_caster->GetPositionZ(),
@@ -5758,6 +5795,9 @@ void Spell::EffectDuel(SpellEffIndex effIndex)
         delete pGameObj;
         return;
     }
+
+    for (auto phase : m_caster->GetPhases())
+        pGameObj->SetInPhase(phase, false, true);
 
     pGameObj->SetUInt32Value(GAMEOBJECT_FACTION, m_caster->getFaction());
     pGameObj->SetUInt32Value(GAMEOBJECT_LEVEL, m_caster->getLevel()+1);
@@ -6109,11 +6149,14 @@ void Spell::EffectSummonObject(SpellEffIndex effIndex)
 
     Map* map = m_caster->GetMap();
     if (!go->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), go_id, map,
-        m_caster->GetPhaseMask(), x, y, z, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 0, GO_STATE_READY))
+        0, x, y, z, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 0, GO_STATE_READY))
     {
         delete go;
         return;
     }
+
+    for (auto phase : m_caster->GetPhases())
+        go->SetInPhase(phase, false, true);
 
     //pGameObj->SetUInt32Value(GAMEOBJECT_LEVEL, m_caster->getLevel());
     int32 duration = m_spellInfo->GetDuration();
@@ -6738,11 +6781,14 @@ void Spell::EffectTransmitted(SpellEffIndex effIndex)
     GameObject* pGameObj = new GameObject;
 
     if (!pGameObj->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), name_id, cMap,
-        m_caster->GetPhaseMask(), fx, fy, fz, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
+        0, fx, fy, fz, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
     {
         delete pGameObj;
         return;
     }
+
+    for (auto phase : m_caster->GetPhases())
+        pGameObj->SetInPhase(phase, false, true);
 
     int32 duration = m_spellInfo->GetDuration();
 
@@ -6804,8 +6850,11 @@ void Spell::EffectTransmitted(SpellEffIndex effIndex)
     {
         GameObject* linkedGO = new GameObject;
         if (linkedGO->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), linkedEntry, cMap,
-            m_caster->GetPhaseMask(), fx, fy, fz, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
+            0, fx, fy, fz, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
         {
+            for (auto phase : m_caster->GetPhases())
+                linkedGO->SetInPhase(phase, false, true);
+
             linkedGO->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
             //linkedGO->SetUInt32Value(GAMEOBJECT_LEVEL, m_caster->getLevel());
             linkedGO->SetSpellId(m_spellInfo->Id);

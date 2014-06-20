@@ -1,10 +1,5 @@
 /*
- *
- * Copyright (C) 2011-2014 ArkCORE <http://www.arkania.net/>
- *
  * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
- *
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,27 +15,35 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AUTHCRYPT_H
-#define _AUTHCRYPT_H
+#ifndef SHA256_h__
+#define SHA256_h__
 
-#include "Cryptography/ARC4.h"
+#include "Define.h"
+#include <string>
+#include <openssl/sha.h>
 
 class BigNumber;
 
-class AuthCrypt
+class SHA256Hash
 {
     public:
-        AuthCrypt();
+        SHA256Hash();
+        ~SHA256Hash();
 
-        void Init(BigNumber* K);
-        void DecryptRecv(uint8 *, size_t);
-        void EncryptSend(uint8 *, size_t);
+        void UpdateBigNumbers(BigNumber* bn0, ...);
 
-        bool IsInitialized() const { return _initialized; }
+        void UpdateData(const uint8 *dta, int len);
+        void UpdateData(const std::string &str);
+
+        void Initialize();
+        void Finalize();
+
+        uint8 *GetDigest(void) { return mDigest; };
+        int GetLength(void) const { return SHA256_DIGEST_LENGTH; };
 
     private:
-        ARC4 _clientDecrypt;
-        ARC4 _serverEncrypt;
-        bool _initialized;
+        SHA256_CTX mC;
+        uint8 mDigest[SHA256_DIGEST_LENGTH];
 };
-#endif
+
+#endif // SHA256_h__
