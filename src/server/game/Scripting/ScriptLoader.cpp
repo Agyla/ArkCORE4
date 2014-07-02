@@ -16,6 +16,7 @@
  */
 
 #include "ScriptLoader.h"
+#include "World.h"
 
 //examples
 void AddSC_example_creature();
@@ -41,7 +42,7 @@ void AddSC_item_spell_scripts();
 void AddSC_example_spell_scripts();
 void AddSC_holiday_spell_scripts();
 
-void AddSC_SmartSCripts();
+void AddSC_SmartScripts();
 
 //Commands
 void AddSC_credits_commandscript ();
@@ -49,6 +50,7 @@ void AddSC_account_commandscript();
 void AddSC_achievement_commandscript();
 void AddSC_arena_commandscript();
 void AddSC_ban_commandscript();
+void AddSC_battlenet_account_commandscript();
 void AddSC_bf_commandscript();
 void AddSC_cast_commandscript();
 void AddSC_character_commandscript();
@@ -99,6 +101,7 @@ void AddSC_npcs_special();
 void AddSC_npc_taxi();
 void AddSC_achievement_scripts();
 void AddSC_npc_trainings_dummy();
+void AddSC_action_ip_logger();
 
 //eastern kingdoms
 void AddSC_coldridge_valley();
@@ -524,7 +527,6 @@ void AddSC_boss_xt002();
 void AddSC_boss_kologarn();
 void AddSC_boss_assembly_of_iron();
 void AddSC_boss_general_vezax();
-void AddSC_ulduar_teleporter();
 void AddSC_boss_mimiron();
 void AddSC_boss_hodir();
 void AddSC_boss_freya();
@@ -753,6 +755,7 @@ void AddSC_outdoorpvp_zm();
 
 // player
 void AddSC_chat_log();
+void AddSC_action_ip_logger();
 
 #endif
 
@@ -760,7 +763,7 @@ void AddScripts()
 {
     AddExampleScripts();
     AddSpellScripts();
-    AddSC_SmartSCripts();
+    AddSC_SmartScripts();
     AddCommandScripts();
 #ifdef SCRIPTS
     AddWorldScripts();
@@ -812,6 +815,7 @@ void AddCommandScripts()
     AddSC_achievement_commandscript();
     AddSC_arena_commandscript();
     AddSC_ban_commandscript();
+    AddSC_battlenet_account_commandscript();
     AddSC_bf_commandscript();
     AddSC_cast_commandscript();
     AddSC_character_commandscript();
@@ -863,8 +867,11 @@ void AddWorldScripts()
     AddSC_npcs_special();
     AddSC_npc_taxi();
     AddSC_achievement_scripts();
-    AddSC_chat_log();
 	AddSC_npc_trainings_dummy();
+    AddSC_chat_log(); // location: scripts\World\chat_log.cpp
+    // To avoid duplicate code, we check once /*ONLY*/ if logging is permitted or not.
+    if (sWorld->getBoolConfig(CONFIG_IP_BASED_ACTION_LOGGING))
+        AddSC_action_ip_logger(); // location: scripts\World\action_ip_logger.cpp
 #endif
 }
 
@@ -1421,7 +1428,6 @@ void AddNorthrendScripts()
     AddSC_boss_general_vezax();
     AddSC_boss_assembly_of_iron();
     AddSC_boss_kologarn();
-    AddSC_ulduar_teleporter();
     AddSC_boss_mimiron();
     AddSC_boss_hodir();
     AddSC_boss_freya();

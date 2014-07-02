@@ -86,6 +86,7 @@ struct CreatureTemplate
     uint32  Modelid3;
     uint32  Modelid4;
     std::string  Name;
+    std::string FemaleName;
     std::string  SubName;
     std::string  IconName;
     uint32  GossipMenuId;
@@ -176,7 +177,7 @@ struct CreatureTemplate
 };
 
 // Benchmarked: Faster than std::map (insert/find)
-typedef UNORDERED_MAP<uint32, CreatureTemplate> CreatureTemplateContainer;
+typedef std::unordered_map<uint32, CreatureTemplate> CreatureTemplateContainer;
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push, N), also any gcc version not support it at some platform
 #if defined(__GNUC__)
@@ -224,11 +225,12 @@ struct CreatureBaseStats
     static CreatureBaseStats const* GetBaseStats(uint8 level, uint8 unitClass);
 };
 
-typedef UNORDERED_MAP<uint16, CreatureBaseStats> CreatureBaseStatsContainer;
+typedef std::unordered_map<uint16, CreatureBaseStats> CreatureBaseStatsContainer;
 
 struct CreatureLocale
 {
     StringVector Name;
+    StringVector FemaleName;
     StringVector SubName;
 };
 
@@ -249,8 +251,8 @@ struct EquipmentInfo
 };
 
 // Benchmarked: Faster than std::map (insert/find)
-typedef UNORDERED_MAP<uint8, EquipmentInfo> EquipmentInfoContainerInternal;
-typedef UNORDERED_MAP<uint32, EquipmentInfoContainerInternal> EquipmentInfoContainer;
+typedef std::unordered_map<uint8, EquipmentInfo> EquipmentInfoContainerInternal;
+typedef std::unordered_map<uint32, EquipmentInfoContainerInternal> EquipmentInfoContainer;
 
 // from `creature` table
 struct CreatureData
@@ -258,7 +260,7 @@ struct CreatureData
     CreatureData() : id(0), mapid(0), phaseMask(0), displayid(0), equipmentId(0),
                      posX(0.0f), posY(0.0f), posZ(0.0f), orientation(0.0f), spawntimesecs(0),
                      spawndist(0.0f), currentwaypoint(0), curhealth(0), curmana(0), movementType(0),
-                     spawnMask(0), npcflag(0), unit_flags(0), dynamicflags(0), dbData(true) { }
+                     spawnMask(0), npcflag(0), unit_flags(0), dynamicflags(0), phaseid(0), phaseGroup(0), dbData(true) { }
     uint32 id;                                              // entry in creature_template
     uint16 mapid;
     uint32 phaseMask;
@@ -278,6 +280,8 @@ struct CreatureData
     uint32 npcflag;
     uint32 unit_flags;                                      // enum UnitFlags mask values
     uint32 dynamicflags;
+    uint32 phaseid;
+    uint32 phaseGroup;
     bool dbData;
 };
 
@@ -290,7 +294,7 @@ struct CreatureModelInfo
 };
 
 // Benchmarked: Faster than std::map (insert/find)
-typedef UNORDERED_MAP<uint16, CreatureModelInfo> CreatureModelContainer;
+typedef std::unordered_map<uint16, CreatureModelInfo> CreatureModelContainer;
 
 enum InhabitTypeValues
 {
@@ -331,7 +335,7 @@ struct CreatureAddon
     std::vector<uint32> auras;
 };
 
-typedef UNORDERED_MAP<uint32, CreatureAddon> CreatureAddonContainer;
+typedef std::unordered_map<uint32, CreatureAddon> CreatureAddonContainer;
 
 // Vendors
 struct VendorItem
@@ -408,7 +412,7 @@ struct TrainerSpell
     bool IsCastable() const { return learnedSpell[0] != spell; }
 };
 
-typedef UNORDERED_MAP<uint32 /*spellid*/, TrainerSpell> TrainerSpellMap;
+typedef std::unordered_map<uint32 /*spellid*/, TrainerSpell> TrainerSpellMap;
 
 struct TrainerSpellData
 {
@@ -512,9 +516,9 @@ class Creature : public Unit, public GridObject<Creature>, public MapObject
         void UpdateMaxHealth();
         void UpdateMaxPower(Powers power);
         void UpdateAttackPowerAndDamage(bool ranged = false);
-        void CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage) OVERRIDE;
+        void CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage) override;
 
-        void SetCanDualWield(bool value) OVERRIDE;
+        void SetCanDualWield(bool value) override;
         int8 GetOriginalEquipmentId() const { return m_originalEquipmentId; }
         uint8 GetCurrentEquipmentId() { return m_equipmentId; }
         void SetCurrentEquipmentId(uint8 id) { m_equipmentId = id; }
@@ -548,8 +552,10 @@ class Creature : public Unit, public GridObject<Creature>, public MapObject
         virtual void DeleteFromDB();                        // overriden in Pet
 
         Loot loot;
-        bool lootForPickPocketed;
-        bool lootForBody;
+        void StartPickPocketRefillTimer();
+        void ResetPickPocketRefillTimer() { _pickpocketLootRestore = 0; }
+        void SetSkinner(uint64 guid) { _skinner = guid; }
+        uint64 GetSkinner() const { return _skinner; } // Returns the player who skinned this creature
         Player* GetLootRecipient() const;
         Group* GetLootRecipientGroup() const;
         bool hasLootRecipient() const { return m_lootRecipient || m_lootRecipientGroup; }
@@ -685,8 +691,10 @@ class Creature : public Unit, public GridObject<Creature>, public MapObject
 
         uint64 m_lootRecipient;
         uint32 m_lootRecipientGroup;
+        uint64 _skinner;
 
         /// Timers
+        time_t _pickpocketLootRestore;
         time_t m_corpseRemoveTime;                          // (msecs)timer for death or corpse disappearance
         time_t m_respawnTime;                               // (secs) time of next respawn
         uint32 m_respawnDelay;                              // (secs) delay between corpse disappearance and respawning

@@ -103,7 +103,10 @@ inline uint32 _GetGuildBankTabPrice(uint8 tabId)
 
 void Guild::SendCommandResult(WorldSession* session, GuildCommandType type, GuildCommandError errCode, std::string const& param)
 {
-    WorldPacket data(SMSG_GUILD_COMMAND_RESULT, 8 + param.size() + 1);
+    // Note: SMSG_GUILD_COMMAND_RESULT and SMSG_GUILD_COMMAND_RESULT_2 do exactly the same in the client, they just have different structures.
+    // There's no particular reason why we use SMSG_GUILD_COMMAND_RESULT_2, this one is processed inmediately as it is read from the client.
+    // SMSG_GUILD_COMMAND_RESULT is a JAM opcode
+    WorldPacket data(SMSG_GUILD_COMMAND_RESULT_2, 8 + param.size() + 1);
     data << uint32(type);
     data << param;
     data << uint32(errCode);
@@ -790,7 +793,7 @@ int32 Guild::Member::GetBankWithdrawValue(uint8 tabId) const
 {
     // Guild master has unlimited amount.
     if (IsRank(GR_GUILDMASTER))
-        return tabId == GUILD_BANK_MAX_TABS ? GUILD_WITHDRAW_MONEY_UNLIMITED : GUILD_WITHDRAW_SLOT_UNLIMITED;
+        return static_cast<int32>(tabId == GUILD_BANK_MAX_TABS ? GUILD_WITHDRAW_MONEY_UNLIMITED : GUILD_WITHDRAW_SLOT_UNLIMITED);
 
     return m_bankWithdraw[tabId];
 }
@@ -3029,7 +3032,7 @@ inline int32 Guild::_GetMemberRemainingSlots(Member const* member, uint8 tabId) 
     {
         uint8 rankId = member->GetRankId();
         if (rankId == GR_GUILDMASTER)
-            return GUILD_WITHDRAW_SLOT_UNLIMITED;
+            return static_cast<int32>(GUILD_WITHDRAW_SLOT_UNLIMITED);
         if ((_GetRankBankTabRights(rankId, tabId) & GUILD_BANK_RIGHT_VIEW_TAB) != 0)
         {
             int32 remaining = _GetRankBankTabSlotsPerDay(rankId, tabId) - member->GetBankWithdrawValue(tabId);
@@ -3046,7 +3049,7 @@ inline int32 Guild::_GetMemberRemainingMoney(Member const* member) const
     {
         uint8 rankId = member->GetRankId();
         if (rankId == GR_GUILDMASTER)
-            return GUILD_WITHDRAW_MONEY_UNLIMITED;
+            return static_cast<int32>(GUILD_WITHDRAW_MONEY_UNLIMITED);
 
         if ((_GetRankRights(rankId) & (GR_RIGHT_WITHDRAW_REPAIR | GR_RIGHT_WITHDRAW_GOLD)) != 0)
         {

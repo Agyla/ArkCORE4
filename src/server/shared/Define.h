@@ -74,16 +74,6 @@
 #  define ATTR_DEPRECATED
 #endif //COMPILER == COMPILER_GNU
 
-#if COMPILER_HAS_CPP11_SUPPORT
-#  define OVERRIDE override
-#  define FINAL final
-#  define DELETE_MEMBER = delete
-#else
-#  define OVERRIDE
-#  define FINAL
-#  define DELETE_MEMBER
-#endif //COMPILER_HAS_CPP11_SUPPORT
-
 #define UI64FMTD ACE_UINT64_FORMAT_SPECIFIER
 #define UI64LIT(N) ACE_UINT64_LITERAL(N)
 
@@ -103,16 +93,17 @@ typedef ACE_UINT8 uint8;
 
 enum DBCFormer
 {
-    FT_NA='x',                                              //not used or unknown, 4 byte size
-    FT_NA_BYTE='X',                                         //not used or unknown, byte
-    FT_STRING='s',                                          //char*
-    FT_FLOAT='f',                                           //float
-    FT_INT='i',                                             //uint32
-    FT_BYTE='b',                                            //uint8
-    FT_SORT='d',                                            //sorted by this field, field is not included
-    FT_IND='n',                                             //the same, but parsed to data
-    FT_SQL_PRESENT='p',                                     //Used in sql format to mark column present in sql dbc
-    FT_SQL_ABSENT='a'                                       //Used in sql format to mark column absent in sql dbc
+    FT_NA = 'x',                                            //not used or unknown, 4 byte size
+    FT_NA_BYTE = 'X',                                       //not used or unknown, byte
+    FT_STRING = 's',                                        //char*
+    FT_FLOAT = 'f',                                         //float
+    FT_INT = 'i',                                           //uint32
+    FT_BYTE = 'b',                                          //uint8
+    FT_LONG = 'l',                                          //uint64
+    FT_SORT = 'd',                                          //sorted by this field, field is not included
+    FT_IND = 'n',                                           //the same, but parsed to data
+    FT_SQL_PRESENT = 'p',                                   //Used in sql format to mark column present in sql dbc
+    FT_SQL_ABSENT = 'a'                                     //Used in sql format to mark column absent in sql dbc
 };
 
 #endif //TRINITY_DEFINE_H

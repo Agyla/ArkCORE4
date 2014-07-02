@@ -101,13 +101,13 @@ void GossipMenu::AddMenuItem(uint32 menuId, uint32 menuItemId, uint32 sender, ui
 
         /// OptionText
         if (optionBroadcastText)
-            ObjectMgr::GetLocaleString(optionBroadcastText->MaleText, GetLocale(), strOptionText);
+            strOptionText = optionBroadcastText->GetText(GetLocale());
         else
             strOptionText = itr->second.OptionText;
 
         /// BoxText
         if (boxBroadcastText)
-            ObjectMgr::GetLocaleString(boxBroadcastText->MaleText, GetLocale(), strBoxText);
+            strBoxText = boxBroadcastText->GetText(GetLocale());
         else
             strBoxText = itr->second.BoxText;
 
@@ -517,7 +517,7 @@ void PlayerMenu::SendQuestQueryResponse(Quest const* quest) const
     data << uint32(quest->GetRewHonorAddition());
     data << float(quest->GetRewHonorMultiplier());
     data << uint32(quest->GetSrcItemId());                  // source item id
-    data << uint32(quest->GetFlags() & 0xFFFF);             // quest flags
+    data << uint32(quest->GetFlags());                      // quest flags
     data << uint32(quest->GetMinimapTargetMark());          // minimap target mark (skull, etc. missing enum)
     data << uint32(quest->GetCharTitleId());                // CharTitleId, new 2.4.0, player gets this title (id from CharTitles)
     data << uint32(quest->GetPlayersSlain());               // players slain

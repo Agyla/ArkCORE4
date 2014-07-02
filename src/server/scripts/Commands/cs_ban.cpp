@@ -35,7 +35,7 @@ class ban_commandscript : public CommandScript
 public:
     ban_commandscript() : CommandScript("ban_commandscript") { }
 
-    ChatCommand* GetCommands() const OVERRIDE
+    ChatCommand* GetCommands() const override
     {
         static ChatCommand unbanCommandTable[] =
         {
@@ -174,7 +174,7 @@ public:
         switch (mode)
         {
             case BAN_ACCOUNT:
-                if (!AccountMgr::normalizeString(nameOrIP))
+                if (!Utf8ToUpperOnlyLatin(nameOrIP))
                 {
                     handler->PSendSysMessage(LANG_ACCOUNT_NOT_EXIST, nameOrIP.c_str());
                     handler->SetSentErrorMessage(true);
@@ -245,7 +245,7 @@ public:
             return false;
 
         std::string accountName = nameStr;
-        if (!AccountMgr::normalizeString(accountName))
+        if (!Utf8ToUpperOnlyLatin(accountName))
         {
             handler->PSendSysMessage(LANG_ACCOUNT_NOT_EXIST, accountName.c_str());
             handler->SetSentErrorMessage(true);
@@ -710,7 +710,7 @@ public:
         switch (mode)
         {
             case BAN_ACCOUNT:
-                if (!AccountMgr::normalizeString(nameOrIP))
+                if (!Utf8ToUpperOnlyLatin(nameOrIP))
                 {
                     handler->PSendSysMessage(LANG_ACCOUNT_NOT_EXIST, nameOrIP.c_str());
                     handler->SetSentErrorMessage(true);

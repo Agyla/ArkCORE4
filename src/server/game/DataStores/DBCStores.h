@@ -87,6 +87,12 @@ LFGDungeonEntry const* GetLFGDungeon(uint32 mapId, Difficulty difficulty);
 
 uint32 GetDefaultMapLight(uint32 mapId);
 
+std::set<uint32> const& GetPhasesForGroup(uint32 group);
+
+typedef std::unordered_multimap<uint32, SkillRaceClassInfoEntry const*> SkillRaceClassInfoMap;
+typedef std::pair<SkillRaceClassInfoMap::iterator, SkillRaceClassInfoMap::iterator> SkillRaceClassInfoBounds;
+SkillRaceClassInfoEntry const* GetSkillRaceClassInfo(uint32 skill, uint8 race, uint8 class_);
+
 extern DBCStorage <AchievementEntry>             sAchievementStore;
 extern DBCStorage <AchievementCriteriaEntry>     sAchievementCriteriaStore;
 extern DBCStorage <AreaTableEntry>               sAreaStore;// recommend access using functions
@@ -177,10 +183,12 @@ extern DBCStorage <MountTypeEntry>               sMountTypeStore;
 extern DBCStorage <NameGenEntry>                 sNameGenStore;
 extern DBCStorage <NumTalentsAtLevelEntry>       sNumTalentsAtLevelStore;
 extern DBCStorage <PhaseEntry>                   sPhaseStore;
+extern DBCStorage <PhaseGroupEntry> sPhaseGroupStore;
 //extern DBCStorage <MapDifficultyEntry>           sMapDifficultyStore; -- use GetMapDifficultyData insteed
 extern MapDifficultyMap                          sMapDifficultyMap;
 extern DBCStorage <MovieEntry>                   sMovieStore;
 extern DBCStorage <OverrideSpellDataEntry>       sOverrideSpellDataStore;
+extern DBCStorage <PowerDisplayEntry>            sPowerDisplayStore;
 extern DBCStorage <QuestSortEntry>               sQuestSortStore;
 extern DBCStorage <QuestXPEntry>                 sQuestXPStore;
 extern DBCStorage <QuestFactionRewEntry>         sQuestFactionRewardStore;
@@ -189,6 +197,7 @@ extern DBCStorage <ScalingStatDistributionEntry> sScalingStatDistributionStore;
 extern DBCStorage <ScalingStatValuesEntry>       sScalingStatValuesStore;
 extern DBCStorage <SkillLineEntry>               sSkillLineStore;
 extern DBCStorage <SkillLineAbilityEntry>        sSkillLineAbilityStore;
+extern DBCStorage <SkillTiersEntry>              sSkillTiersStore;
 extern DBCStorage <SoundEntriesEntry>            sSoundEntriesStore;
 extern DBCStorage <SpellCastTimesEntry>          sSpellCastTimesStore;
 extern DBCStorage <SpellCategoryEntry>           sSpellCategoryStore;

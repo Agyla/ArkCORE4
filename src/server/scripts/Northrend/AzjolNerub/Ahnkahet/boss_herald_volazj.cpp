@@ -82,7 +82,7 @@ public:
             return 100*(me->GetHealth()-damage)/me->GetMaxHealth();
         }
 
-        void DamageTaken(Unit* /*pAttacker*/, uint32 &damage) OVERRIDE
+        void DamageTaken(Unit* /*pAttacker*/, uint32 &damage) override
         {
             if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
                 damage = 0;
@@ -95,7 +95,7 @@ public:
             }
         }
 
-        void SpellHitTarget(Unit* target, const SpellInfo* spell) OVERRIDE
+        void SpellHitTarget(Unit* target, const SpellInfo* spell) override
         {
             if (spell->Id == SPELL_INSANITY)
             {
@@ -111,8 +111,14 @@ public:
                     me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                     me->SetControlled(true, UNIT_STATE_STUNNED);
                 }
-                // phase mask
-                target->CastSpell(target, SPELL_INSANITY_TARGET+insanityHandled, true);
+
+                // phase the player
+                target->CastSpell(target, SPELL_INSANITY_TARGET + insanityHandled, true);
+
+                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(SPELL_INSANITY_TARGET + insanityHandled);
+                if (!spellInfo)
+                    return;
+
                 // summon twisted party members for this target
                 Map::PlayerList const &players = me->GetMap()->GetPlayers();
                 for (Map::PlayerList::const_iterator i = players.begin(); i != players.end(); ++i)
@@ -125,25 +131,26 @@ public:
                     {
                         // clone
                         player->CastSpell(summon, SPELL_CLONE_PLAYER, true);
-                        // set phase
-                        summon->SetPhaseMask((1<<(4+insanityHandled)), true);
+                        // phase the summon
+                        summon->SetInPhase(spellInfo->Effects[EFFECT_0].MiscValueB, true, true);
                     }
                 }
                 ++insanityHandled;
             }
         }
 
-        void ResetPlayersPhaseMask()
+        void ResetPlayersPhase()
         {
             Map::PlayerList const &players = me->GetMap()->GetPlayers();
             for (Map::PlayerList::const_iterator i = players.begin(); i != players.end(); ++i)
             {
                 Player* player = i->GetSource();
-                player->RemoveAurasDueToSpell(GetSpellForPhaseMask(player->GetPhaseMask()));
+                for (uint32 index = 0; index <= 4; ++index)
+                    player->RemoveAurasDueToSpell(SPELL_INSANITY_TARGET + index);
             }
         }
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             uiMindFlayTimer = 8*IN_MILLISECONDS;
             uiShadowBoltVolleyTimer = 5*IN_MILLISECONDS;
@@ -153,11 +160,14 @@ public:
             instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_QUICK_DEMISE_START_EVENT);
 
             // Visible for all players in insanity
-            me->SetPhaseMask((1|16|32|64|128|256), true);
+            me->SetInPhase(169, true, true);
+            for (uint32 i = 173; i <= 177; ++i)
+                me->SetInPhase(i, true, true);
+
             // Used for Insanity handling
             insanityHandled = 0;
 
-            ResetPlayersPhaseMask();
+            ResetPlayersPhase();
 
             // Cleanup
             Summons.DespawnAll();
@@ -165,7 +175,7 @@ public:
             me->SetControlled(false, UNIT_STATE_STUNNED);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
 
@@ -173,57 +183,33 @@ public:
             instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_QUICK_DEMISE_START_EVENT);
         }
 
-        void JustSummoned(Creature* summon) OVERRIDE
+        void JustSummoned(Creature* summon) override
         {
             Summons.Summon(summon);
         }
 
-        uint32 GetSpellForPhaseMask(uint32 phase)
+        void SummonedCreatureDespawn(Creature* summon) override
         {
-            uint32 spell = 0;
-            switch (phase)
-            {
-                case 16:
-                    spell = SPELL_INSANITY_PHASING_1;
-                    break;
-                case 32:
-                    spell = SPELL_INSANITY_PHASING_2;
-                    break;
-                case 64:
-                    spell = SPELL_INSANITY_PHASING_3;
-                    break;
-                case 128:
-                    spell = SPELL_INSANITY_PHASING_4;
-                    break;
-                case 256:
-                    spell = SPELL_INSANITY_PHASING_5;
-                    break;
-            }
-            return spell;
-        }
-
-        void SummonedCreatureDespawn(Creature* summon) OVERRIDE
-        {
-            uint32 phase = summon->GetPhaseMask();
             uint32 nextPhase = 0;
             Summons.Despawn(summon);
 
             // Check if all summons in this phase killed
             for (SummonList::const_iterator iter = Summons.begin(); iter != Summons.end(); ++iter)
             {
-                if (Creature* visage = Unit::GetCreature(*me, *iter))
+                if (Creature* visage = ObjectAccessor::GetCreature(*me, *iter))
                 {
                     // Not all are dead
-                    if (phase == visage->GetPhaseMask())
+                    if (visage->IsInPhase(summon))
                         return;
                     else
-                        nextPhase = visage->GetPhaseMask();
+                    {
+                        nextPhase = *visage->GetPhases().begin();
+                        break;
+                    }
                 }
             }
 
             // Roll Insanity
-            uint32 spell = GetSpellForPhaseMask(phase);
-            uint32 spell2 = GetSpellForPhaseMask(nextPhase);
             Map* map = me->GetMap();
             if (!map)
                 return;
@@ -235,18 +221,15 @@ public:
                 {
                     if (Player* player = i->GetSource())
                     {
-                        if (player->HasAura(spell))
-                        {
-                            player->RemoveAurasDueToSpell(spell);
-                            if (spell2) // if there is still some different mask cast spell for it
-                                player->CastSpell(player, spell2, true);
-                        }
+                        for (uint32 index = 0; index <= 4; ++index)
+                            player->RemoveAurasDueToSpell(SPELL_INSANITY_TARGET + index);
+                        player->CastSpell(player, SPELL_INSANITY_TARGET + nextPhase - 173, true);
                     }
                 }
             }
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -285,24 +268,24 @@ public:
             DoMeleeAttackIfReady();
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             Talk(SAY_DEATH);
 
             instance->SetBossState(DATA_HERALD_VOLAZJ, DONE);
 
             Summons.DespawnAll();
-            ResetPlayersPhaseMask();
+            ResetPlayersPhase();
         }
 
-        void KilledUnit(Unit* who) OVERRIDE
+        void KilledUnit(Unit* who) override
         {
             if (who->GetTypeId() == TYPEID_PLAYER)
                 Talk(SAY_SLAY);
         }
     };
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return GetInstanceAI<boss_volazjAI>(creature);
     }

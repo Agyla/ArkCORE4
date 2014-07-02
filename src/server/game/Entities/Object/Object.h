@@ -122,7 +122,7 @@ class WorldObject;
 class WorldPacket;
 class ZoneScript;
 
-typedef UNORDERED_MAP<Player*, UpdateData> UpdateDataMapType;
+typedef std::unordered_map<Player*, UpdateData> UpdateDataMapType;
 
 //! Structure to ease conversions from single 64 bit integer guid into individual bytes, for packet sending purposes
 //! Nuke this out when porting ObjectGuid from MaNGOS, but preserve the per-byte storage
@@ -333,8 +333,8 @@ class Object
 
         // for output helpfull error messages from asserts
         bool PrintIndexError(uint32 index, bool set) const;
-        Object(Object const& right) DELETE_MEMBER;
-        Object& operator=(Object const& right) DELETE_MEMBER;
+        Object(Object const& right) = delete;
+        Object& operator=(Object const& right) = delete;
 };
 
 struct Position
@@ -680,9 +680,13 @@ class WorldObject : public Object, public WorldLocation
         uint32 GetInstanceId() const { return m_InstanceId; }
 
         virtual void SetPhaseMask(uint32 newPhaseMask, bool update);
+        virtual void SetInPhase(uint32 id, bool update, bool apply);
         uint32 GetPhaseMask() const { return m_phaseMask; }
         bool InSamePhase(WorldObject const* obj) const;
         bool InSamePhase(uint32 phasemask) const { return (GetPhaseMask() & phasemask); }
+        bool IsInPhase(uint32 phase) const { return _phases.find(phase) != _phases.end(); }
+        bool IsInPhase(WorldObject const* obj) const;
+        std::set<uint32> const& GetPhases() const { return _phases; }
 
         uint32 GetZoneId() const;
         uint32 GetAreaId() const;
@@ -867,6 +871,7 @@ class WorldObject : public Object, public WorldLocation
         //uint32 m_mapId;                                     // object at map with map_id
         uint32 m_InstanceId;                                // in map copy with instance id
         uint32 m_phaseMask;                                 // in area phase state
+        std::set<uint32> _phases;
 
         uint16 m_notifyflags;
         uint16 m_executed_notifies;

@@ -173,6 +173,7 @@ DBCStorage <NumTalentsAtLevelEntry> sNumTalentsAtLevelStore(NumTalentsAtLevelfmt
 
 DBCStorage <OverrideSpellDataEntry> sOverrideSpellDataStore(OverrideSpellDatafmt);
 
+DBCStorage <PowerDisplayEntry> sPowerDisplayStore(PowerDisplayfmt);
 DBCStorage <PvPDifficultyEntry> sPvPDifficultyStore(PvPDifficultyfmt);
 
 DBCStorage <QuestSortEntry> sQuestSortStore(QuestSortEntryfmt);
@@ -184,6 +185,9 @@ DBCStorage <ScalingStatValuesEntry> sScalingStatValuesStore(ScalingStatValuesfmt
 
 DBCStorage <SkillLineEntry> sSkillLineStore(SkillLinefmt);
 DBCStorage <SkillLineAbilityEntry> sSkillLineAbilityStore(SkillLineAbilityfmt);
+DBCStorage <SkillRaceClassInfoEntry> sSkillRaceClassInfoStore(SkillRaceClassInfofmt);
+SkillRaceClassInfoMap SkillRaceClassInfoBySkill;
+DBCStorage <SkillTiersEntry> sSkillTiersStore(SkillTiersfmt);
 
 DBCStorage <SoundEntriesEntry> sSoundEntriesStore(SoundEntriesfmt);
 
@@ -256,7 +260,10 @@ DBCStorage <WMOAreaTableEntry> sWMOAreaTableStore(WMOAreaTableEntryfmt);
 DBCStorage <WorldMapAreaEntry> sWorldMapAreaStore(WorldMapAreaEntryfmt);
 DBCStorage <WorldMapOverlayEntry> sWorldMapOverlayStore(WorldMapOverlayEntryfmt);
 DBCStorage <WorldSafeLocsEntry> sWorldSafeLocsStore(WorldSafeLocsEntryfmt);
-DBCStorage <PhaseEntry> sPhaseStores(PhaseEntryfmt);
+DBCStorage <PhaseEntry> sPhaseStore(PhaseEntryfmt);
+DBCStorage <PhaseGroupEntry> sPhaseGroupStore(PhaseGroupfmt);
+
+PhaseGroupContainer sPhasesByGroup;
 
 typedef std::list<std::string> StoreProblemList;
 
@@ -471,7 +478,6 @@ void LoadDBCStores(const std::string& dataPath)
     LoadDBC(availableDbcLocales, bad_dbc_files, sLightStore,                  dbcPath, "Light.dbc"); //15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sLiquidTypeStore,             dbcPath, "LiquidType.dbc");//15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sLockStore,                   dbcPath, "Lock.dbc");//15595
-    LoadDBC(availableDbcLocales, bad_dbc_files, sPhaseStores,                 dbcPath, "Phase.dbc");//15595
 
     LoadDBC(availableDbcLocales, bad_dbc_files, sMailTemplateStore,           dbcPath, "MailTemplate.dbc");//15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sMapStore,                    dbcPath, "Map.dbc");//15595
@@ -497,7 +503,18 @@ void LoadDBCStores(const std::string& dataPath)
 
     LoadDBC(availableDbcLocales, bad_dbc_files, sOverrideSpellDataStore,      dbcPath, "OverrideSpellData.dbc");//15595
 
+    LoadDBC(availableDbcLocales, bad_dbc_files, sPhaseStore, dbcPath, "Phase.dbc"); // 15595
+    LoadDBC(availableDbcLocales, bad_dbc_files, sPhaseGroupStore, dbcPath, "PhaseXPhaseGroup.dbc"); // 15595
+
+    for (uint32 i = 0; i < sPhaseGroupStore.GetNumRows(); ++i)
+        if (PhaseGroupEntry const* group = sPhaseGroupStore.LookupEntry(i))
+            if (PhaseEntry const* phase = sPhaseStore.LookupEntry(group->PhaseId))
+                sPhasesByGroup[group->GroupId].insert(phase->ID);
+
+    LoadDBC(availableDbcLocales, bad_dbc_files, sPowerDisplayStore,           dbcPath, "PowerDisplay.dbc");
+
     LoadDBC(availableDbcLocales, bad_dbc_files, sPvPDifficultyStore,          dbcPath, "PvpDifficulty.dbc");//15595
+
     for (uint32 i = 0; i < sPvPDifficultyStore.GetNumRows(); ++i)
         if (PvPDifficultyEntry const* entry = sPvPDifficultyStore.LookupEntry(i))
             if (entry->bracketId > MAX_BATTLEGROUND_BRACKETS)
@@ -513,6 +530,13 @@ void LoadDBCStores(const std::string& dataPath)
     LoadDBC(availableDbcLocales, bad_dbc_files, sScalingStatValuesStore,      dbcPath, "ScalingStatValues.dbc");//15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sSkillLineStore,              dbcPath, "SkillLine.dbc");//15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sSkillLineAbilityStore,       dbcPath, "SkillLineAbility.dbc");//15595
+    LoadDBC(availableDbcLocales, bad_dbc_files, sSkillRaceClassInfoStore,     dbcPath, "SkillRaceClassInfo.dbc");
+    for (uint32 i = 0; i < sSkillRaceClassInfoStore.GetNumRows(); ++i)
+        if (SkillRaceClassInfoEntry const* entry = sSkillRaceClassInfoStore.LookupEntry(i))
+            if (sSkillLineStore.LookupEntry(entry->SkillId))
+                SkillRaceClassInfoBySkill.emplace(entry->SkillId, entry);
+
+    LoadDBC(availableDbcLocales, bad_dbc_files, sSkillTiersStore,             dbcPath, "SkillTiers.dbc");
     LoadDBC(availableDbcLocales, bad_dbc_files, sSoundEntriesStore,           dbcPath, "SoundEntries.dbc");//15595
     LoadDBC(availableDbcLocales, bad_dbc_files, sSpellStore,                  dbcPath, "Spell.dbc", &CustomSpellEntryfmt, &CustomSpellEntryIndex);//
     LoadDBC(availableDbcLocales, bad_dbc_files, sSpellCategoriesStore,        dbcPath,"SpellCategories.dbc");//15595
@@ -1298,4 +1322,25 @@ uint32 GetDefaultMapLight(uint32 mapId)
     }
 
     return 0;
+}
+
+SkillRaceClassInfoEntry const* GetSkillRaceClassInfo(uint32 skill, uint8 race, uint8 class_)
+{
+    SkillRaceClassInfoBounds bounds = SkillRaceClassInfoBySkill.equal_range(skill);
+    for (SkillRaceClassInfoMap::iterator itr = bounds.first; itr != bounds.second; ++itr)
+    {
+        if (itr->second->RaceMask && !(itr->second->RaceMask & (1 << (race - 1))))
+            continue;
+        if (itr->second->ClassMask && !(itr->second->ClassMask & (1 << (class_ - 1))))
+            continue;
+
+        return itr->second;
+    }
+
+    return NULL;
+}
+ 
+std::set<uint32> const& GetPhasesForGroup(uint32 group)
+{
+    return sPhasesByGroup[group];
 }

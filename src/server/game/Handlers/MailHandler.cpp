@@ -28,6 +28,7 @@
 #include "DBCStores.h"
 #include "Item.h"
 #include "AccountMgr.h"
+#include "BattlenetAccountMgr.h"
 #include "GuildMgr.h"
 
 bool WorldSession::CanOpenMailBox(uint64 guid)
@@ -180,6 +181,13 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
 
     uint64 reqmoney = cost + money;
 
+    // Check for overflow
+    if (reqmoney < money)
+    {
+        player->SendMailResult(0, MAIL_SEND, MAIL_ERR_NOT_ENOUGH_MONEY);
+        return;
+    }
+
     if (!player->HasEnoughMoney(reqmoney) && !player->IsGameMaster())
     {
         player->SendMailResult(0, MAIL_SEND, MAIL_ERR_NOT_ENOUGH_MONEY);
@@ -192,6 +200,7 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
     uint8 mailsCount = 0;                                  //do not allow to send to one player more than 100 mails
     uint8 receiverLevel = 0;
     uint32 receiverAccountId = 0;
+    uint32 receiverBnetAccountId = 0;
 
     if (receiver)
     {
@@ -199,6 +208,7 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
         mailsCount = receiver->GetMailSize();
         receiverLevel = receiver->getLevel();
         receiverAccountId = receiver->GetSession()->GetAccountId();
+        receiverBnetAccountId = receiver->GetSession()->GetBattlenetAccountId();
     }
     else
     {
@@ -225,6 +235,7 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
         }
 
         receiverAccountId = sObjectMgr->GetPlayerAccountIdByGUID(receiverGuid);
+        receiverBnetAccountId = Battlenet::AccountMgr::GetIdByGameAccount(receiverAccountId);
     }
 
     // do not allow to have more than 100 mails in mailbox.. mails count is in opcode uint8!!! - so max can be 255..
@@ -288,8 +299,11 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
 
         if (item->IsBoundAccountWide() && item->IsSoulBound() && player->GetSession()->GetAccountId() != receiverAccountId)
         {
-            player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_NOT_SAME_ACCOUNT);
-            return;
+            if (!item->IsBattlenetAccountBound() || !player->GetSession()->GetBattlenetAccountId() || player->GetSession()->GetBattlenetAccountId() != receiverBnetAccountId)
+            {
+                player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_NOT_SAME_ACCOUNT);
+                return;
+            }
         }
 
         if (item->GetTemplate()->Flags & ITEM_PROTO_FLAG_CONJURED || item->GetUInt32Value(ITEM_FIELD_DURATION))
@@ -369,6 +383,10 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
         if (guild->GetLevel() >= 17 && guild->IsMember(receiverGuid))
             deliver_delay = 0;
 
+    // don't ask for COD if there are no items
+    if (items_count == 0)
+        COD = 0;
+
     // will delete item or place to receiver mail list
     draft
         .AddMoney(money)
@@ -392,7 +410,7 @@ void WorldSession::HandleMailMarkAsRead(WorldPacket& recvData)
 
     Player* player = _player;
     Mail* m = player->GetMail(mailId);
-    if (m)
+    if (m && m->state != MAIL_STATE_DELETED)
     {
         if (player->unReadMails)
             --player->unReadMails;
@@ -504,6 +522,13 @@ void WorldSession::HandleMailTakeItem(WorldPacket& recvData)
 
     Mail* m = player->GetMail(mailId);
     if (!m || m->state == MAIL_STATE_DELETED || m->deliver_time > time(NULL))
+    {
+        player->SendMailResult(mailId, MAIL_ITEM_TAKEN, MAIL_ERR_INTERNAL_ERROR);
+        return;
+    }
+
+    // verify that the mail has the item to avoid cheaters taking COD items without paying
+    if (std::find_if(m->items.begin(), m->items.end(), [itemId](MailItemInfo info){ return info.item_guid == itemId; }) == m->items.end())
     {
         player->SendMailResult(mailId, MAIL_ITEM_TAKEN, MAIL_ERR_INTERNAL_ERROR);
         return;
@@ -762,7 +787,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket& recvData)
     Player* player = _player;
 
     Mail* m = player->GetMail(mailId);
-    if (!m || (m->body.empty() && !m->mailTemplateId) || m->state == MAIL_STATE_DELETED || m->deliver_time > time(NULL))
+    if (!m || (m->body.empty() && !m->mailTemplateId) || m->state == MAIL_STATE_DELETED || m->deliver_time > time(NULL) || (m->checked & MAIL_CHECK_MASK_COPIED))
     {
         player->SendMailResult(mailId, MAIL_MADE_PERMANENT, MAIL_ERR_INTERNAL_ERROR);
         return;

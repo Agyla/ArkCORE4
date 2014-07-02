@@ -74,6 +74,13 @@ class AuraEffect
         void HandleEffect(Unit* target, uint8 mode, bool apply);
         void ApplySpellMod(Unit* target, bool apply);
 
+        void  SetDamage(int32 val) { m_damage = val; }
+        int32 GetDamage() const { return m_damage; }
+        void  SetCritChance(float val) { m_critChance = val; }
+        float GetCritChance() const { return m_critChance; }
+        void  SetDonePct(float val) { m_donePct = val; }
+        float GetDonePct() const { return m_donePct; }
+
         void Update(uint32 diff, Unit* caster);
         void UpdatePeriodic(Unit* caster);
 
@@ -102,6 +109,9 @@ class AuraEffect
         int32 const m_baseAmount;
 
         int32 m_amount;
+        int32 m_damage;
+        float m_critChance;
+        float m_donePct;
 
         SpellModifier* m_spellmod;
 
@@ -113,7 +123,7 @@ class AuraEffect
         bool m_canBeRecalculated;
         bool m_isPeriodic;
     private:
-        bool IsPeriodicTickCrit(Unit* target, Unit const* caster) const;
+        bool CanPeriodicTickCrit(Unit const* caster) const;
 
     public:
         // aura effect apply/remove handlers
@@ -139,6 +149,8 @@ class AuraEffect
         void HandleSpiritOfRedemption(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleAuraGhost(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandlePhase(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandlePhaseGroup(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+
         //  unit model
         void HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, bool apply) const;

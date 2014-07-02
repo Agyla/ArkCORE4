@@ -41,7 +41,7 @@ class debug_commandscript : public CommandScript
 public:
     debug_commandscript() : CommandScript("debug_commandscript") { }
 
-    ChatCommand* GetCommands() const OVERRIDE
+    ChatCommand* GetCommands() const override
     {
         static ChatCommand debugPlayCommandTable[] =
         {
@@ -934,6 +934,9 @@ public:
             return false;
         }
 
+        for (auto phase : handler->GetSession()->GetPlayer()->GetPhases())
+            v->SetInPhase(phase, false, true);
+
         map->AddToMap(v->ToCreature());
 
         return true;
@@ -962,13 +965,14 @@ public:
 
         std::set<uint32> terrainswap;
         std::set<uint32> phaseId;
+        std::set<uint32> worldMapSwap;
 
         terrainswap.insert((uint32)atoi(t));
 
         if (p)
             phaseId.insert((uint32)atoi(p));
 
-        handler->GetSession()->SendSetPhaseShift(phaseId, terrainswap);
+        handler->GetSession()->SendSetPhaseShift(phaseId, terrainswap, worldMapSwap);
         return true;
     }
 
@@ -1386,14 +1390,14 @@ public:
         return true;
     }
 
-    static bool HandleDebugPhaseCommand(ChatHandler* handler, char const* /*args*/)
+    static bool HandleDebugPhaseCommand(ChatHandler* /*handler*/, char const* /*args*/)
     {
+        /*/
         Unit* unit = handler->getSelectedUnit();
         Player* player = handler->GetSession()->GetPlayer();
         if (unit && unit->GetTypeId() == TYPEID_PLAYER)
             player = unit->ToPlayer();
-
-        player->GetPhaseMgr().SendDebugReportToPlayer(handler->GetSession()->GetPlayer());
+        */
         return true;
     }
 };

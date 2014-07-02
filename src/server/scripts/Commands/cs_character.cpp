@@ -35,7 +35,7 @@ class character_commandscript : public CommandScript
 public:
     character_commandscript() : CommandScript("character_commandscript") { }
 
-    ChatCommand* GetCommands() const OVERRIDE
+    ChatCommand* GetCommands() const override
     {
         static ChatCommand pdumpCommandTable[] =
         {
@@ -858,7 +858,7 @@ public:
             return false;
 
         std::string accountName = accountStr;
-        if (!AccountMgr::normalizeString(accountName))
+        if (!Utf8ToUpperOnlyLatin(accountName))
         {
             handler->PSendSysMessage(LANG_ACCOUNT_NOT_EXIST, accountName.c_str());
             handler->SetSentErrorMessage(true);

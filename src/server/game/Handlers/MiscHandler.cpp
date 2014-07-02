@@ -191,11 +191,6 @@ void WorldSession::HandleWhoOpcode(WorldPacket& recvData)
 {
     TC_LOG_DEBUG("network", "WORLD: Recvd CMSG_WHO Message");
 
-    time_t now = time(NULL);
-    if (now - timeLastWhoCommand < 5)
-        return;
-    else timeLastWhoCommand = now;
-
     uint32 matchcount = 0;
 
     uint32 level_min, level_max, racemask, classmask, zones_count, str_count;
@@ -503,10 +498,9 @@ void WorldSession::HandleZoneUpdateOpcode(WorldPacket& recvData)
 
     TC_LOG_DEBUG("network", "WORLD: Recvd ZONE_UPDATE: %u", newZone);
 
-    // use server size data
-    uint32 newzone, newarea;
-    GetPlayer()->GetZoneAndAreaId(newzone, newarea);
-    GetPlayer()->UpdateZone(newzone, newarea);
+    // use server side data, but only after update the player position. See Player::UpdatePosition().
+    GetPlayer()->SetNeedsZoneUpdate(true);
+
     //GetPlayer()->SendInitWorldStates(true, newZone);
 }
 
@@ -799,10 +793,10 @@ void WorldSession::HandleResurrectResponseOpcode(WorldPacket& recvData)
         return;
     }
 
-    if (!GetPlayer()->IsRessurectRequestedBy(guid))
+    if (!GetPlayer()->IsResurrectRequestedBy(guid))
         return;
 
-    GetPlayer()->ResurectUsingRequestData();
+    GetPlayer()->ResurrectUsingRequestData();
 }
 
 void WorldSession::SendAreaTriggerMessage(const char* Text, ...)
@@ -1241,7 +1235,7 @@ void WorldSession::HandleInspectOpcode(WorldPacket& recvData)
     {
         data << uint64(guild->GetGUID());
         data << uint32(guild->GetLevel());
-        data << uint64(0/*guild->GetXP()*/);
+        data << uint64(guild->GetExperience());
         data << uint32(guild->GetMembersCount());
     }
     SendPacket(&data);
@@ -1679,16 +1673,8 @@ void WorldSession::HandleMoveSetCanFlyAckOpcode(WorldPacket& recvData)
     // fly mode on/off
     TC_LOG_DEBUG("network", "WORLD: CMSG_MOVE_SET_CAN_FLY_ACK");
 
-    uint64 guid;                                            // guid - unused
-    recvData.readPackGUID(guid);
-
-    recvData.read_skip<uint32>();                          // unk
-
     MovementInfo movementInfo;
-    movementInfo.guid = guid;
     _player->ReadMovementInfo(recvData, &movementInfo);
-
-    recvData.read_skip<float>();                           // unk2
 
     _player->m_mover->m_movementInfo.flags = movementInfo.GetMovementFlags();
 }
@@ -1759,7 +1745,7 @@ void WorldSession::HandleReadyForAccountDataTimes(WorldPacket& /*recvData*/)
     SendAccountDataTimes(GLOBAL_CACHE_MASK);
 }
 
-void WorldSession::SendSetPhaseShift(std::set<uint32> const& phaseIds, std::set<uint32> const& terrainswaps)
+void WorldSession::SendSetPhaseShift(std::set<uint32> const& phaseIds, std::set<uint32> const& terrainswaps, std::set<uint32> const& worldMapAreaSwaps)
 {
     ObjectGuid guid = _player->GetGUID();
 
@@ -1776,9 +1762,9 @@ void WorldSession::SendSetPhaseShift(std::set<uint32> const& phaseIds, std::set<
     data.WriteByteSeq(guid[7]);
     data.WriteByteSeq(guid[4]);
 
-    data << uint32(0);
-    //for (uint8 i = 0; i < worldMapAreaCount; ++i)
-    //    data << uint16(0);                    // WorldMapArea.dbc id (controls map display)
+    data << uint32(worldMapAreaSwaps.size());
+    for (auto mapSwap : worldMapAreaSwaps)
+        data << uint16(mapSwap);                    // WorldMapArea.dbc id (controls map display)
 
     data.WriteByteSeq(guid[1]);
 

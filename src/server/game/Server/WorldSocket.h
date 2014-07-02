@@ -43,7 +43,7 @@
 #endif /* ACE_LACKS_PRAGMA_ONCE */
 
 #include "Common.h"
-#include "AuthCrypt.h"
+#include "WorldPacketCrypt.h"
 
 class ACE_Message_Block;
 class WorldPacket;
@@ -180,7 +180,7 @@ class WorldSocket : public WorldHandler
         std::string m_Address;
 
         /// Class used for managing encryption of the headers
-        AuthCrypt m_Crypt;
+        WorldPacketCrypt m_Crypt;
 
         /// Mutex lock to protect m_Session
         LockType m_SessionLock;
@@ -213,8 +213,8 @@ class WorldSocket : public WorldHandler
 
         uint32 m_Seed;
 
-        WorldSocket(WorldSocket const& right) DELETE_MEMBER;
-        WorldSocket& operator=(WorldSocket const& right) DELETE_MEMBER;
+        WorldSocket(WorldSocket const& right) = delete;
+        WorldSocket& operator=(WorldSocket const& right) = delete;
 };
 
 #endif  /* _WORLDSOCKET_H */

@@ -166,7 +166,7 @@ Quest::Quest(Field* questRecord)
     for (int i = 0; i < QUEST_EMOTE_COUNT; ++i)
         OfferRewardEmoteDelay[i] = questRecord[164+i].GetInt32();
 
-    // int32 WDBVerified = questRecord[168].GetInt32();
+    //int32 VerifiedBuild = questRecord[168].GetInt32();
 
     if (SpecialFlags & QUEST_SPECIAL_FLAGS_AUTO_ACCEPT)
         Flags |= QUEST_FLAGS_AUTO_ACCEPT;
@@ -330,7 +330,7 @@ bool Quest::IsAutoAccept() const
 
 bool Quest::IsAutoComplete() const
 {
-    return sWorld->getBoolConfig(CONFIG_QUEST_IGNORE_AUTO_COMPLETE) ? false : (Method == 0 || HasFlag(QUEST_FLAGS_AUTOCOMPLETE));
+    return sWorld->getBoolConfig(CONFIG_QUEST_IGNORE_AUTO_COMPLETE) || (Method == 0);
 }
 
 bool Quest::IsRaidQuest(Difficulty difficulty) const
