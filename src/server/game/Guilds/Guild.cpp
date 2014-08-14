@@ -103,7 +103,10 @@ inline uint32 _GetGuildBankTabPrice(uint8 tabId)
 
 void Guild::SendCommandResult(WorldSession* session, GuildCommandType type, GuildCommandError errCode, std::string const& param)
 {
-    WorldPacket data(SMSG_GUILD_COMMAND_RESULT, 8 + param.size() + 1);
+    // Note: SMSG_GUILD_COMMAND_RESULT and SMSG_GUILD_COMMAND_RESULT_2 do exactly the same in the client, they just have different structures.
+    // There's no particular reason why we use SMSG_GUILD_COMMAND_RESULT_2, this one is processed inmediately as it is read from the client.
+    // SMSG_GUILD_COMMAND_RESULT is a JAM opcode
+    WorldPacket data(SMSG_GUILD_COMMAND_RESULT_2, 8 + param.size() + 1);
     data << uint32(type);
     data << param;
     data << uint32(errCode);
@@ -729,9 +732,10 @@ bool Guild::Member::LoadFromDB(Field* fields)
 
     if (!m_zoneId)
     {
-        TC_LOG_ERROR("guild", "Player (GUID: %u) has broken zone-data", GUID_LOPART(m_guid));
+        TC_LOG_DEBUG("guild", "Player (GUID: %u) has broken zone-data", GUID_LOPART(m_guid));
         m_zoneId = Player::GetZoneIdFromDB(m_guid);
     }
+
     ResetFlags();
     return true;
 }
@@ -2325,7 +2329,7 @@ void Guild::SendLoginInfo(WorldSession* session)
     for (uint32 i = 0; i < sGuildPerkSpellsStore.GetNumRows(); ++i)
         if (GuildPerkSpellsEntry const* entry = sGuildPerkSpellsStore.LookupEntry(i))
             if (entry->Level <= GetLevel())
-                player->learnSpell(entry->SpellId, true);
+                player->LearnSpell(entry->SpellId, true);
 
     SendGuildReputationWeeklyCap(session, member->GetWeekReputation());
 
@@ -2773,7 +2777,7 @@ void Guild::DeleteMember(uint64 guid, bool isDisbanding, bool isKicked, bool can
         for (uint32 i = 0; i < sGuildPerkSpellsStore.GetNumRows(); ++i)
             if (GuildPerkSpellsEntry const* entry = sGuildPerkSpellsStore.LookupEntry(i))
                 if (entry->Level <= GetLevel())
-                    player->removeSpell(entry->SpellId, false, false);
+                    player->RemoveSpell(entry->SpellId, false, false);
     }
 
     _DeleteMemberFromDB(lowguid);
@@ -3192,7 +3196,7 @@ bool Guild::_DoItemsMove(MoveItemData* pSrc, MoveItemData* pDest, bool sendError
     Item* pDestItem = pDest->GetItem();
     bool swap = (pDestItem != NULL);
 
-    Item* pSrcItem = pSrc->GetItem(splitedAmount);
+    Item* pSrcItem = pSrc->GetItem(splitedAmount != 0);
     // 1. Can store source item in destination
     if (!pDest->CanStore(pSrcItem, swap, sendError))
         return false;
@@ -3541,7 +3545,7 @@ void Guild::GiveXP(uint32 xp, Player* source)
             {
                 player->SetGuildLevel(GetLevel());
                 for (size_t i = 0; i < perksToLearn.size(); ++i)
-                    player->learnSpell(perksToLearn[i], true);
+                    player->LearnSpell(perksToLearn[i], true);
             }
         }
 

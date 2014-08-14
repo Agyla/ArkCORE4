@@ -16,6 +16,7 @@
  */
 
 #include "ScriptLoader.h"
+#include "World.h"
 
 //examples
 void AddSC_example_creature();
@@ -41,7 +42,7 @@ void AddSC_item_spell_scripts();
 void AddSC_example_spell_scripts();
 void AddSC_holiday_spell_scripts();
 
-void AddSC_SmartSCripts();
+void AddSC_SmartScripts();
 
 //Commands
 void AddSC_credits_commandscript ();
@@ -100,6 +101,7 @@ void AddSC_npcs_special();
 void AddSC_npc_taxi();
 void AddSC_achievement_scripts();
 void AddSC_npc_trainings_dummy();
+void AddSC_action_ip_logger();
 
 //eastern kingdoms
 void AddSC_coldridge_valley();
@@ -309,7 +311,6 @@ void AddSC_eastern_plaguelands();
 void AddSC_eversong_woods();
 void AddSC_ghostlands();
 void AddSC_hinterlands();
-void AddSC_ironforge();
 void AddSC_isle_of_queldanas();
 void AddSC_loch_modan();
 void AddSC_redridge_mountains();
@@ -320,9 +321,9 @@ void AddSC_swamp_of_sorrows();
 void AddSC_tirisfal_glades();
 void AddSC_undercity();
 void AddSC_western_plaguelands();
-void AddSC_westfall();
 void AddSC_wetlands();
 void AddSC_gilneas();
+void AddSC_westfall();
 
 
 //kalimdor
@@ -753,6 +754,7 @@ void AddSC_outdoorpvp_zm();
 
 // player
 void AddSC_chat_log();
+void AddSC_action_ip_logger();
 
 #endif
 
@@ -760,7 +762,7 @@ void AddScripts()
 {
     AddExampleScripts();
     AddSpellScripts();
-    AddSC_SmartSCripts();
+    AddSC_SmartScripts();
     AddCommandScripts();
 #ifdef SCRIPTS
     AddWorldScripts();
@@ -864,8 +866,11 @@ void AddWorldScripts()
     AddSC_npcs_special();
     AddSC_npc_taxi();
     AddSC_achievement_scripts();
-    AddSC_chat_log();
 	AddSC_npc_trainings_dummy();
+    AddSC_chat_log(); // location: scripts\World\chat_log.cpp
+    // To avoid duplicate code, we check once /*ONLY*/ if logging is permitted or not.
+    if (sWorld->getBoolConfig(CONFIG_IP_BASED_ACTION_LOGGING))
+        AddSC_action_ip_logger(); // location: scripts\World\action_ip_logger.cpp
 #endif
 }
 
@@ -1077,10 +1082,8 @@ void AddEasternKingdomsScripts()
     AddSC_burning_steppes();
     AddSC_duskwood();
     AddSC_eastern_plaguelands();
-    AddSC_eversong_woods();
     AddSC_ghostlands();
     AddSC_hinterlands();
-    AddSC_ironforge();
     AddSC_isle_of_queldanas();
     AddSC_loch_modan();
     AddSC_redridge_mountains();
@@ -1091,8 +1094,8 @@ void AddEasternKingdomsScripts()
     AddSC_tirisfal_glades();
     AddSC_undercity();
     AddSC_western_plaguelands();
-    AddSC_westfall();
     AddSC_wetlands();
+    AddSC_westfall();
 #endif
 }
 

@@ -1349,15 +1349,18 @@ class spell_pal_shield_of_the_righteous : public SpellScriptLoader
                 // 3 HolyPower: (damage * 6) - 6
                 switch (power)
                 {
+                    switch (GetCaster()->GetPower(POWER_HOLY_POWER))
+                    {
                     case 0: // 1 Holy Power
-                        damage = int32(damage - 1.0f);
+                        // same damage
                         break;
                     case 1: // 2 Holy Power
-                        damage = int32((damage * 3.0f) - 3.0f);
+                        damage *= 3;    // 3*30 = 90%
                         break;
                     case 2: // 3 Holy Power
-                        damage = int32((damage * 6.0f) - 6.0f);
+                        damage *= 7.5;  // 7.5*30% = 225%
                         break;
+                    }
                 }
 
                 SetHitDamage(damage);
@@ -1691,14 +1694,14 @@ class spell_pal_seal_of_righteousness : public SpellScriptLoader
 
 // 85256 - Templar's Verdict
 /// Updated 4.3.4
-class spell_pal_templar_verdict : public SpellScriptLoader
+class spell_pal_templar_s_verdict : public SpellScriptLoader
 {
     public:
-        spell_pal_templar_verdict() : SpellScriptLoader("spell_pal_templar_verdict") { }
+        spell_pal_templar_s_verdict() : SpellScriptLoader("spell_pal_templar_s_verdict") { }
 
-        class spell_pal_templar_verdict_SpellScript : public SpellScript
+        class spell_pal_templar_s_verdict_SpellScript : public SpellScript
         {
-            PrepareSpellScript(spell_pal_templar_verdict_SpellScript);
+            PrepareSpellScript(spell_pal_templar_s_verdict_SpellScript);
 
             bool Validate (SpellInfo const* /*spellEntry*/)
             {
@@ -1731,7 +1734,7 @@ class spell_pal_templar_verdict : public SpellScriptLoader
                     switch (caster->GetPower(POWER_HOLY_POWER))
                     {
                         case 0: // 1 Holy Power
-                            damage = damage;
+                            // same damage
                             break;
                         case 1: // 2 Holy Power
                             damage *= 3;    // 3*30 = 90%
@@ -1747,13 +1750,13 @@ class spell_pal_templar_verdict : public SpellScriptLoader
 
             void Register() override
             {
-                OnEffectHitTarget += SpellEffectFn(spell_pal_templar_verdict_SpellScript::ChangeDamage, EFFECT_0, SPELL_EFFECT_WEAPON_PERCENT_DAMAGE);
+                OnEffectHitTarget += SpellEffectFn(spell_pal_templar_s_verdict_SpellScript::ChangeDamage, EFFECT_0, SPELL_EFFECT_WEAPON_PERCENT_DAMAGE);
             }
         };
 
         SpellScript* GetSpellScript() const override
         {
-            return new spell_pal_templar_verdict_SpellScript();
+            return new spell_pal_templar_s_verdict_SpellScript();
         }
 };
 
@@ -1793,5 +1796,5 @@ void AddSC_paladin_spell_scripts()
 	new spell_pal_word_of_glory();
 	new spell_pal_seal_of_righteousness();
 	new spell_pal_glyph_of_holy_light();
-	new spell_pal_templar_verdict();
+	new spell_pal_templar_s_verdict();
 }

@@ -188,7 +188,7 @@ public:
         {
             if (done_by && done_by->GetTypeId() == TYPEID_PLAYER)
                 if (me->GetHealth() <= damage)
-                    if (rand()%100 < 75)
+                    if (rand32() % 100 < 75)
                         //Summon Wood Mites
                         DoCast(me, 39130, true);
         }
@@ -275,7 +275,7 @@ public:
         {
             if (done_by->GetTypeId() == TYPEID_PLAYER)
                 if (me->GetHealth() <= damage)
-                    if (rand()%100 < 75)
+                    if (rand32() % 100 < 75)
                         //Summon Lots of Wood Mights
                         DoCast(me, 39134, true);
         }
@@ -324,18 +324,18 @@ public:
 
             if (player->GetQuestStatus(10873) == QUEST_STATUS_INCOMPLETE)
             {
-                if (rand()%100 < 25)
+                if (rand32() % 100 < 25)
                 {
                     me->SummonCreature(QUEST_TARGET, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
                     player->KilledMonsterCredit(QUEST_TARGET, 0);
                 }
                 else
-                    me->SummonCreature(netherwebVictims[rand()%6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                    me->SummonCreature(netherwebVictims[rand32() % 6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
 
-                if (rand()%100 < 75)
-                    me->SummonCreature(netherwebVictims[rand()%6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                if (rand32() % 100 < 75)
+                    me->SummonCreature(netherwebVictims[rand32() % 6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
 
-                me->SummonCreature(netherwebVictims[rand()%6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                me->SummonCreature(netherwebVictims[rand32() % 6], 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
             }
         }
     };
@@ -533,7 +533,7 @@ public:
     {
         if (quest->GetQuestId() == QUEST_EFTW_H || quest->GetQuestId() == QUEST_EFTW_A)
         {
-            CAST_AI(npc_escortAI, (creature->AI()))->Start(true, false, player->GetGUID());
+            ENSURE_AI(npc_escortAI, (creature->AI()))->Start(true, false, player->GetGUID());
             creature->setFaction(113);
         }
         return true;
@@ -704,6 +704,54 @@ public:
     };
 };
 
+enum eQuest10929
+{
+    NPC_MATURE_BONE_SIFTER = 22482,
+    NPC_SAND_GNOME = 22483,
+    NPC_HAISHULUD = 22038,
+    QUEST_FUMPING = 10929,
+    ITEM_MATURE_BONE_SIFTER_CARCASS = 31814,
+    ITEM_FUMPER = 31810,
+    SPELL_FUMPING = 39238,
+};
+
+// spell 39238
+class spell_fumping : public SpellScriptLoader
+{
+public:
+    spell_fumping() : SpellScriptLoader("spell_fumping") { }
+
+    class spell_fumping_SpellScript : public SpellScript
+    {
+        PrepareSpellScript(spell_fumping_SpellScript);
+
+        void HandleDummy(SpellEffIndex /*effIndex*/)
+        {
+            if (Player* player = GetCaster()->ToPlayer())
+            {
+                Position pos = player->GetNearPosition(3.0f, player->GetAngle(&player->GetPosition()));
+                uint32 pct = urand(0, 100);
+                if (pct < 70)
+                    player->SummonCreature(NPC_MATURE_BONE_SIFTER, pos, TEMPSUMMON_DEAD_DESPAWN, 5000);
+                else
+                    player->SummonCreature(NPC_SAND_GNOME, pos, TEMPSUMMON_DEAD_DESPAWN, 5000);
+            } 
+        }
+
+        void Register()
+        {
+            OnEffectHit += SpellEffectFn(spell_fumping_SpellScript::HandleDummy, EFFECT_1, SPELL_EFFECT_DUMMY);
+        }
+    };
+
+    SpellScript* GetSpellScript() const
+    {
+        return new spell_fumping_SpellScript();
+    }
+};
+
+
+
 void AddSC_terokkar_forest()
 {
     new npc_unkor_the_ruthless();
@@ -716,4 +764,6 @@ void AddSC_terokkar_forest()
     new npc_skywing();
     new npc_slim();
     new npc_akuno();
+    new spell_fumping();
+
 }

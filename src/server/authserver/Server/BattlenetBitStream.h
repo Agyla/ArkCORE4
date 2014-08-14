@@ -18,41 +18,30 @@
 #ifndef __BATTLENETBITSTREAM_H__
 #define __BATTLENETBITSTREAM_H__
 
-#include "ByteConverter.h"
 #include "Common.h"
+#include "ByteConverter.h"
+#include "MessageBuffer.h"
 #include <exception>
 #include <vector>
 #include <type_traits>
-#include <ace/Auto_Ptr.h>
-#include <ace/Stack_Trace.h>
+#include <memory>
 
 namespace Battlenet
 {
     class BitStreamPositionException : public std::exception
     {
-        static uint32 const MessageSize = ACE_Stack_Trace::SYMBUFSIZ + 128;
+        static uint32 const MessageSize = 128;
 
     public:
         BitStreamPositionException(bool read, uint32 operationSize, uint32 position, uint32 streamSize)
         {
             memset(_message, 0, MessageSize);
-#ifndef TRINITY_DEBUG
-            snprintf(_message, MessageSize, "Attempted to %s more bits (%u) %s stream than %s (%u)\nStack trace:\n",
+            snprintf(_message, MessageSize, "Attempted to %s more bits (%u) %s stream than %s (%u)\n",
                 (read ? "read" : "write"),
                 operationSize + position,
                 (read ? "from" : "to"),
                 (read ? "exist" : "allowed"),
                 streamSize);
-#else
-            ACE_Stack_Trace st(1);
-            snprintf(_message, MessageSize, "Attempted to %s more bits (%u) %s stream than %s (%u)\nStack trace:\n%s",
-                (read ? "read" : "write"),
-                operationSize + position,
-                (read ? "from" : "to"),
-                (read ? "exist" : "allowed"),
-                streamSize,
-                st.c_str());
-#endif
         }
 
         char const* what() const throw()
@@ -67,12 +56,16 @@ namespace Battlenet
     class BitStream
     {
     public:
-        static uint32 const MaxSize = 0x1000;
+        static uint32 const MaxSize = 0x4000;
 
         // length : The maximum number of bytes to read
         BitStream(uint32 length) : _numBits(length * 8), _readPos(0), _writePos(0)
         {
             _buffer.resize(length, 0);
+        }
+
+        BitStream(MessageBuffer&& buffer) : _buffer(buffer.Move()), _numBits(_buffer.size() * 8), _readPos(0), _writePos(0)
+        {
         }
 
         BitStream() : _numBits(0), _readPos(0), _writePos(0)
@@ -95,13 +88,13 @@ namespace Battlenet
             return str;
         }
 
-        ACE_Auto_Array_Ptr<uint8> ReadBytes(uint32 count)
+        std::unique_ptr<uint8[]> ReadBytes(uint32 count)
         {
             AlignToNextByte();
             if (_readPos + count * 8 > _numBits)
                 throw BitStreamPositionException(true, count * 8, _readPos, _numBits);
 
-            ACE_Auto_Array_Ptr<uint8> buf(new uint8[count]);
+            std::unique_ptr<uint8[]> buf(new uint8[count]);
             memcpy(buf.get(), &_buffer[_readPos >> 3], count);
             _readPos += count * 8;
             return buf;
@@ -230,6 +223,7 @@ namespace Battlenet
         bool IsRead() const { return _readPos >= _numBits; }
 
         uint8* GetBuffer() { return _buffer.data(); }
+        uint8 const* GetBuffer() const { return _buffer.data(); }
 
         size_t GetSize() const { return _buffer.size(); }
 
@@ -241,6 +235,9 @@ namespace Battlenet
         uint32 _readPos;
         uint32 _writePos;
     };
+
+    template<>
+    bool BitStream::Read<bool>(uint32 bitCount);
 }
 
 #endif // __BATTLENETBITSTREAM_H__

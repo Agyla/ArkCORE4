@@ -316,10 +316,10 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
             switch (team)
             {
                 case ALLIANCE:
-                    disabled = mask & (1 << 0);
+                    disabled = (mask & (1 << 0)) != 0;
                     break;
                 case HORDE:
-                    disabled = mask & (1 << 1);
+                    disabled = (mask & (1 << 1)) != 0;
                     break;
             }
 
@@ -786,10 +786,15 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recvData)
 {
     uint64 guid;
     recvData >> guid;
+    // Initiating
+    uint32 initAccountId = GetAccountId();
 
     // can't delete loaded character
     if (ObjectAccessor::FindPlayer(guid))
+    {
+        sScriptMgr->OnPlayerFailedDelete(guid, initAccountId);
         return;
+    }
 
     uint32 accountId = 0;
     uint8 level = 0;
@@ -798,6 +803,7 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recvData)
     // is guild leader
     if (sGuildMgr->GetGuildByLeader(guid))
     {
+        sScriptMgr->OnPlayerFailedDelete(guid, initAccountId);
         WorldPacket data(SMSG_CHAR_DELETE, 1);
         data << uint8(CHAR_DELETE_FAILED_GUILD_LEADER);
         SendPacket(&data);
@@ -807,6 +813,7 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recvData)
     // is arena team captain
     if (sArenaTeamMgr->GetArenaTeamByCaptain(guid))
     {
+        sScriptMgr->OnPlayerFailedDelete(guid, initAccountId);
         WorldPacket data(SMSG_CHAR_DELETE, 1);
         data << uint8(CHAR_DELETE_FAILED_ARENA_CAPTAIN);
         SendPacket(&data);
@@ -825,12 +832,18 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recvData)
     }
 
     // prevent deleting other players' characters using cheating tools
-    if (accountId != GetAccountId())
+    if (accountId != initAccountId)
+    {
+        sScriptMgr->OnPlayerFailedDelete(guid, initAccountId);
         return;
+    }
 
     std::string IP_str = GetRemoteAddress();
     TC_LOG_INFO("entities.player.character", "Account: %d, IP: %s deleted character: %s, GUID: %u, Level: %u", accountId, IP_str.c_str(), name.c_str(), GUID_LOPART(guid), level);
-    sScriptMgr->OnPlayerDelete(guid);
+
+    // To prevent hook failure, place hook before removing reference from DB
+    sScriptMgr->OnPlayerDelete(guid, initAccountId); // To prevent race conditioning, but as it also makes sense, we hand the accountId over for successful delete.
+    // Shouldn't interfere with character deletion though
 
     if (sLog->ShouldLog("entities.player.dump", LOG_LEVEL_INFO)) // optimize GetPlayerDump call
     {
@@ -1154,7 +1167,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     // Apply at_login requests
     if (pCurrChar->HasAtLoginFlag(AT_LOGIN_RESET_SPELLS))
     {
-        pCurrChar->resetSpells();
+        pCurrChar->ResetSpells();
         SendNotification(LANG_RESET_SPELLS);
     }
 
@@ -1165,30 +1178,14 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         SendNotification(LANG_RESET_TALENTS);
     }
 
-    if (pCurrChar->HasAtLoginFlag(AT_LOGIN_FIRST))
+    bool firstLogin = pCurrChar->HasAtLoginFlag(AT_LOGIN_FIRST);
+    if (firstLogin)
     {
         pCurrChar->RemoveAtLoginFlag(AT_LOGIN_FIRST);
 
-        if (pCurrChar->getClass() == CLASS_HUNTER)
-        {
-            static uint32 const HunterCreatePetSpells[MAX_RACES] =
-            {
-                   0,  /* None */                          79597,  /* Human - Young Wolf */
-               79598,  /* Orc - Young Boar */              79593,  /* Dwarf - Young Bear */
-               79602,  /* Night Elf - Young Cat */         79600,  /* Undead - Young Widow */
-               79603,  /* Tauren - Young Tallstrider */        0,  /* Gnome */
-               79599,  /* Troll - Young Raptor */          79595,  /* Goblin - Young Crab */
-               79594,  /* Blood Elf - Young Dragonhawk */  79601,  /* Draenei - Young Moth */
-                   0,  /* Fel Orc */                           0,  /* Naga */
-                   0,  /* Broken */                            0,  /* Skeleton */
-                   0,  /* Vrykul */                            0,  /* Tuskarr */
-                   0,  /* Forest Troll */                      0,  /* Taunka */
-                   0,  /* Northrend Skeleton */                0,  /* Ice Troll */
-               79596,  /* Worgen - Young Mastiff */
-            };
-
-            pCurrChar->CastSpell(pCurrChar, HunterCreatePetSpells[pCurrChar->getRace()], true);
-        }
+        PlayerInfo const* info = sObjectMgr->GetPlayerInfo(pCurrChar->getRace(), pCurrChar->getClass());
+        for (uint32 spellId : info->castSpells)
+            pCurrChar->CastSpell(pCurrChar, spellId, true);
     }
 
     // show time before shutdown if shutdown planned.
@@ -1213,7 +1210,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     // Handle Login-Achievements (should be handled after loading)
     _player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_ON_LOGIN, 1);
 
-    sScriptMgr->OnPlayerLogin(pCurrChar);
+    sScriptMgr->OnPlayerLogin(pCurrChar, firstLogin);
+
     delete holder;
 }
 
@@ -1227,7 +1225,7 @@ void WorldSession::HandleSetFactionAtWar(WorldPacket& recvData)
     recvData >> repListID;
     recvData >> flag;
 
-    GetPlayer()->GetReputationMgr().SetAtWar(repListID, flag);
+    GetPlayer()->GetReputationMgr().SetAtWar(repListID, flag != 0);
 }
 
 //I think this function is never used :/ I dunno, but i guess this opcode not exists
@@ -1280,7 +1278,7 @@ void WorldSession::HandleSetFactionInactiveOpcode(WorldPacket& recvData)
     uint8 inactive;
     recvData >> replistid >> inactive;
 
-    _player->GetReputationMgr().SetInactive(replistid, inactive);
+    _player->GetReputationMgr().SetInactive(replistid, inactive != 0);
 }
 
 void WorldSession::HandleShowingHelmOpcode(WorldPacket& recvData)

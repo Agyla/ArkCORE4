@@ -135,7 +135,7 @@ struct boss_twinemperorsAI : public ScriptedAI
             pOtherBoss->SetHealth(0);
             pOtherBoss->setDeathState(JUST_DIED);
             pOtherBoss->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-            CAST_AI(boss_twinemperorsAI, pOtherBoss->AI())->DontYellWhenDead = true;
+            ENSURE_AI(boss_twinemperorsAI, pOtherBoss->AI())->DontYellWhenDead = true;
         }
         if (!DontYellWhenDead)                              // I hope AI is not threaded
             DoPlaySoundToSet(me, IAmVeklor() ? SOUND_VL_DEATH : SOUND_VN_DEATH);
@@ -154,9 +154,9 @@ struct boss_twinemperorsAI : public ScriptedAI
         {
             /// @todo we should activate the other boss location so he can start attackning even if nobody
             // is near I dont know how to do that
-            ScriptedAI* otherAI = CAST_AI(ScriptedAI, pOtherBoss->AI());
             if (!pOtherBoss->IsInCombat())
             {
+                ScriptedAI* otherAI = ENSURE_AI(ScriptedAI, pOtherBoss->AI());
                 DoPlaySoundToSet(me, IAmVeklor() ? SOUND_VL_AGGRO : SOUND_VN_AGGRO);
                 otherAI->AttackStart(who);
                 otherAI->DoZoneInCombat();
@@ -228,7 +228,7 @@ struct boss_twinemperorsAI : public ScriptedAI
             me->SetPosition(otherPos);
 
             SetAfterTeleport();
-            CAST_AI(boss_twinemperorsAI,  pOtherBoss->AI())->SetAfterTeleport();
+            ENSURE_AI(boss_twinemperorsAI, pOtherBoss->AI())->SetAfterTeleport();
         }
     }
 
@@ -334,7 +334,7 @@ struct boss_twinemperorsAI : public ScriptedAI
                 }
                 if (c->IsWithinDistInMap(me, ABUSE_BUG_RANGE))
                 {
-                    if (!nearb || (rand()%4) == 0)
+                    if (!nearb || (rand32() % 4) == 0)
                         nearb = c;
                 }
             }
@@ -441,7 +441,7 @@ public:
             if (UnbalancingStrike_Timer <= diff)
             {
                 DoCastVictim(SPELL_UNBALANCING_STRIKE);
-                UnbalancingStrike_Timer = 8000+rand()%12000;
+                UnbalancingStrike_Timer = 8000 + rand32() % 12000;
             } else UnbalancingStrike_Timer -= diff;
 
             if (UpperCut_Timer <= diff)
@@ -449,7 +449,7 @@ public:
                 Unit* randomMelee = SelectTarget(SELECT_TARGET_RANDOM, 0, NOMINAL_MELEE_RANGE, true);
                 if (randomMelee)
                     DoCast(randomMelee, SPELL_UPPERCUT);
-                UpperCut_Timer = 15000+rand()%15000;
+                UpperCut_Timer = 15000 + rand32() % 15000;
             } else UpperCut_Timer -= diff;
 
             HandleBugs(diff);
@@ -546,7 +546,7 @@ public:
                 target = SelectTarget(SELECT_TARGET_RANDOM, 0, 45, true);
                 if (target)
                     DoCast(target, SPELL_BLIZZARD);
-                Blizzard_Timer = 15000+rand()%15000;
+                Blizzard_Timer = 15000 + rand32() % 15000;
             } else Blizzard_Timer -= diff;
 
             if (ArcaneBurst_Timer <= diff)

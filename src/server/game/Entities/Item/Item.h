@@ -235,7 +235,7 @@ class Item : public Object
         void SetBinding(bool val) { ApplyModFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_SOULBOUND, val); }
         bool IsSoulBound() const { return HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_SOULBOUND); }
         bool IsBoundAccountWide() const { return (GetTemplate()->Flags & ITEM_PROTO_FLAG_BIND_TO_ACCOUNT) != 0; }
-        bool IsBattlenetAccountBound() const { return GetTemplate()->Flags2 & ITEM_FLAGS_EXTRA_BNET_ACCOUNT_BOUND; }
+        bool IsBattlenetAccountBound() const { return (GetTemplate()->Flags2 & ITEM_FLAGS_EXTRA_BNET_ACCOUNT_BOUND) != 0; }
         bool IsBindedNotWith(Player const* player) const;
         bool IsBoundByEnchant() const;
         virtual void SaveToDB(SQLTransaction& trans);
@@ -335,8 +335,8 @@ class Item : public Object
             uState = state;
         }
 
-        bool hasQuest(uint32 quest_id) const { return GetTemplate()->StartQuest == quest_id; }
-        bool hasInvolvedQuest(uint32 /*quest_id*/) const { return false; }
+        bool hasQuest(uint32 quest_id) const override { return GetTemplate()->StartQuest == quest_id; }
+        bool hasInvolvedQuest(uint32 /*quest_id*/) const override { return false; }
         bool HasStats() const;
         bool IsPotion() const { return GetTemplate()->IsPotion(); }
         bool IsVellum() const { return GetTemplate()->IsVellum(); }
@@ -362,7 +362,7 @@ class Item : public Object
         void ClearSoulboundTradeable(Player* currentOwner);
         bool CheckSoulboundTradeExpire();
 
-        void BuildUpdate(UpdateDataMapType&);
+        void BuildUpdate(UpdateDataMapType&) override;
 
         uint32 GetScriptId() const { return GetTemplate()->ScriptId; }
 

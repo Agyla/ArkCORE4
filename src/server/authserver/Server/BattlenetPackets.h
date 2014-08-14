@@ -23,8 +23,10 @@
 #include "BattlenetManager.h"
 #include "Define.h"
 #include "Errors.h"
-#include <ace/INET_Addr.h>
 #include <string>
+#include <boost/asio/ip/tcp.hpp>
+
+using boost::asio::ip::tcp;
 
 namespace Battlenet
 {
@@ -33,8 +35,15 @@ namespace Battlenet
     enum Channel
     {
         AUTHENTICATION  = 0,
-        CREEP           = 1,
-        WOW             = 2
+        CONNECTION      = 1,
+        WOW             = 2,
+        FRIEND          = 3,
+        PRESENCE        = 4,
+        CHAT            = 5,
+        SUPPORT         = 7,
+        ACHIEVEMENT     = 8,
+        CACHE           = 11,
+        PROFILE         = 14
     };
 
     enum AuthOpcode
@@ -48,7 +57,7 @@ namespace Battlenet
         SMSG_AUTH_PROOF_REQUEST     = 0x2
     };
 
-    enum CreepOpcodes
+    enum ConnectionOpcodes
     {
         CMSG_PING               = 0x0,
         CMSG_ENABLE_ENCRYPTION  = 0x5,
@@ -134,6 +143,7 @@ namespace Battlenet
 
         void Read() override final { ASSERT(!"Read not implemented for server packets."); }
 
+        uint8* GetData() { return _stream.GetBuffer(); }
         uint8 const* GetData() const { return _stream.GetBuffer(); }
         size_t GetSize() const { return _stream.GetSize(); }
     };
@@ -261,7 +271,7 @@ namespace Battlenet
     class Pong final : public ServerPacket
     {
     public:
-        Pong() : ServerPacket(PacketHeader(SMSG_PONG, CREEP))
+        Pong() : ServerPacket(PacketHeader(SMSG_PONG, CONNECTION))
         {
         }
 
@@ -308,7 +318,7 @@ namespace Battlenet
         uint32 Type;
         std::string Name;
         std::string Version;
-        ACE_INET_Addr Address;
+        tcp::endpoint Address;
         uint8 Flags;
         uint8 Region;
         uint8 Battlegroup;
@@ -354,8 +364,20 @@ namespace Battlenet
         std::string ToString() const override;
 
         uint32 ServerSeed;
-        std::vector<ACE_INET_Addr> IPv4;
+        std::vector<tcp::endpoint> IPv4;
+        std::vector<tcp::endpoint> IPv6;
     };
+}
+
+namespace boost
+{
+    namespace asio
+    {
+        inline const_buffers_1 buffer(Battlenet::ServerPacket const* packet)
+        {
+            return buffer(packet->GetData(), packet->GetSize());
+        }
+    }
 }
 
 #endif // __BATTLENETPACKETS_H__

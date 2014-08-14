@@ -12,7 +12,6 @@ set(scripts_STAT_SRCS
   ${scripts_STAT_SRCS}
   EasternKingdoms/zone_ghostlands.cpp
   EasternKingdoms/zone_gilneas.cpp
-  EasternKingdoms/zone_eversong_woods.cpp
   EasternKingdoms/AlteracValley/boss_galvangar.cpp
   EasternKingdoms/AlteracValley/boss_balinda.cpp
   EasternKingdoms/AlteracValley/boss_drekthar.cpp
@@ -226,8 +225,6 @@ set(scripts_STAT_SRCS
   EasternKingdoms/ZulAman/zulaman.h
   EasternKingdoms/zone_hinterlands.cpp
   EasternKingdoms/zone_western_plaguelands.cpp
-  EasternKingdoms/zone_alterac_mountains.cpp
-  EasternKingdoms/zone_westfall.cpp
   EasternKingdoms/zone_silverpine_forest.cpp
   EasternKingdoms/Karazhan/instance_karazhan.cpp
   EasternKingdoms/Karazhan/boss_nightbane.cpp
@@ -244,7 +241,9 @@ set(scripts_STAT_SRCS
   EasternKingdoms/Karazhan/karazhan.h
   EasternKingdoms/TheStockade/instance_the_stockade.cpp
   EasternKingdoms/zone_elwynn_forest.cpp
-  EasternKingdoms/zone_coldridge_valley.cpp  
+  EasternKingdoms/zone_coldridge_valley.cpp
+  EasternKingdoms/zone_dun_morogh.cpp
+  EasternKingdoms/zone_westfall.cpp
 )
 
 message("  -> Prepared: Eastern Kingdoms")

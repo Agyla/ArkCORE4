@@ -40,6 +40,7 @@ enum DeathKnightSpells
     SPELL_DK_BLOOD_SHIELD_ABSORB                = 77535,
     SPELL_DK_BUTCHERY                           = 50163,
     SPELL_DK_CORPSE_EXPLOSION_TRIGGERED         = 43999,
+    SPELL_DK_DEATH_AND_DECAY_DAMAGE             = 52212,
     SPELL_DK_DEATH_COIL_DAMAGE                  = 47632,
     SPELL_DK_DEATH_COIL_HEAL                    = 47633,
     SPELL_DK_DEATH_STRIKE_HEAL                  = 45470,
@@ -64,7 +65,8 @@ enum DeathKnightSpells
     SPELL_DK_SCENT_OF_BLOOD                     = 50422,
     SPELL_DK_SCOURGE_STRIKE_TRIGGERED           = 70890,
     SPELL_DK_UNHOLY_PRESENCE                    = 48265,
-    SPELL_DK_WILL_OF_THE_NECROPOLIS             = 96171
+    SPELL_DK_WILL_OF_THE_NECROPOLIS             = 96171,
+    SPELL_DK_PESTILENCE                         = 50842,
 };
 
 // 50462 - Anti-Magic Shell (on raid member)
@@ -289,7 +291,7 @@ class spell_dk_blood_gorged : public SpellScriptLoader
             bool CheckProc(ProcEventInfo& /*eventInfo*/)
             {
                 _procTarget = GetTarget()->GetOwner();
-                return _procTarget;
+                return _procTarget != nullptr;
             }
 
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -349,7 +351,33 @@ class spell_dk_butchery : public SpellScriptLoader
         }
 };
 
-// 47541, 52375, 59134, -62900 - Death Coil
+class spell_dk_death_and_decay : public SpellScriptLoader
+{
+    public:
+        spell_dk_death_and_decay() : SpellScriptLoader("spell_dk_death_and_decay") { }
+
+        class spell_dk_death_and_decay_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_dk_death_and_decay_AuraScript);
+
+            void HandleDummyTick(AuraEffect const* aurEff)
+            {
+                if (Unit* caster = GetCaster())
+                    caster->CastCustomSpell(SPELL_DK_DEATH_AND_DECAY_DAMAGE, SPELLVALUE_BASE_POINT0, aurEff->GetAmount(), GetTarget(), true, NULL, aurEff);
+            }
+
+            void Register() override
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_dk_death_and_decay_AuraScript::HandleDummyTick, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_dk_death_and_decay_AuraScript();
+        }
+};
+
 class spell_dk_death_coil : public SpellScriptLoader
 {
     public:
@@ -619,7 +647,7 @@ class spell_dk_death_strike_enabler : public SpellScriptLoader
 
             bool CheckProc(ProcEventInfo& eventInfo)
             {
-                return eventInfo.GetDamageInfo();
+                return eventInfo.GetDamageInfo() != nullptr;
             }
 
             void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
@@ -951,9 +979,7 @@ class spell_dk_pestilence : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DK_GLYPH_OF_DISEASE)
-                    || !sSpellMgr->GetSpellInfo(SPELL_DK_BLOOD_PLAGUE)
-                    || !sSpellMgr->GetSpellInfo(SPELL_DK_FROST_FEVER))
+                if (!sSpellMgr->GetSpellInfo(SPELL_DK_PESTILENCE))
                     return false;
                 return true;
             }
@@ -1157,8 +1183,8 @@ class spell_dk_raise_dead : public SpellScriptLoader
 
             bool Validate(SpellInfo const* spellInfo) override
             {
-                if (!sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_1].CalcValue())
-                    || !sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_2].CalcValue())
+                if (!sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_0].CalcValue())
+                    || !sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_1].CalcValue())
                     || !sSpellMgr->GetSpellInfo(SPELL_DK_RAISE_DEAD_USE_REAGENT)
                     || !sSpellMgr->GetSpellInfo(SPELL_DK_MASTER_OF_GHOULS))
                     return false;
@@ -1242,10 +1268,10 @@ class spell_dk_raise_dead : public SpellScriptLoader
                 // Do we have talent Master of Ghouls?
                 if (GetCaster()->HasAura(SPELL_DK_MASTER_OF_GHOULS))
                     // summon as pet
-                    return GetSpellInfo()->Effects[EFFECT_2].CalcValue();
+                    return GetSpellInfo()->Effects[EFFECT_1].CalcValue();
 
                 // or guardian
-                return GetSpellInfo()->Effects[EFFECT_1].CalcValue();
+                return GetSpellInfo()->Effects[EFFECT_0].CalcValue();
             }
 
             void HandleRaiseDead(SpellEffIndex /*effIndex*/)
@@ -1260,11 +1286,12 @@ class spell_dk_raise_dead : public SpellScriptLoader
             void Register() override
             {
                 OnCheckCast += SpellCheckCastFn(spell_dk_raise_dead_SpellScript::CheckCast);
-                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_dk_raise_dead_SpellScript::CheckTargets, EFFECT_1, TARGET_UNIT_DEST_AREA_ENTRY);
-                OnObjectTargetSelect += SpellObjectTargetSelectFn(spell_dk_raise_dead_SpellScript::CheckTarget, EFFECT_2, TARGET_UNIT_CASTER);
+                //OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_dk_raise_dead_SpellScript::CheckTargets, EFFECT_0, TARGET_UNIT_CASTER);
+                OnObjectTargetSelect += SpellObjectTargetSelectFn(spell_dk_raise_dead_SpellScript::CheckTarget, EFFECT_0, TARGET_UNIT_CASTER);
+                OnObjectTargetSelect += SpellObjectTargetSelectFn(spell_dk_raise_dead_SpellScript::CheckTarget, EFFECT_1, TARGET_UNIT_CASTER);
                 OnCast += SpellCastFn(spell_dk_raise_dead_SpellScript::ConsumeReagents);
-                OnEffectHitTarget += SpellEffectFn(spell_dk_raise_dead_SpellScript::HandleRaiseDead, EFFECT_1, SPELL_EFFECT_SCRIPT_EFFECT);
-                OnEffectHitTarget += SpellEffectFn(spell_dk_raise_dead_SpellScript::HandleRaiseDead, EFFECT_2, SPELL_EFFECT_DUMMY);
+                OnEffectHitTarget += SpellEffectFn(spell_dk_raise_dead_SpellScript::HandleRaiseDead, EFFECT_0, SPELL_EFFECT_DUMMY);
+                OnEffectHitTarget += SpellEffectFn(spell_dk_raise_dead_SpellScript::HandleRaiseDead, EFFECT_1, SPELL_EFFECT_DUMMY);
             }
 
         private:
@@ -1490,6 +1517,7 @@ void AddSC_deathknight_spell_scripts()
     new spell_dk_blood_boil();
     new spell_dk_blood_gorged();
     new spell_dk_butchery();
+    new spell_dk_death_and_decay();
     new spell_dk_death_coil();
     new spell_dk_death_gate();
     new spell_dk_death_grip();
